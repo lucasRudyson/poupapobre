@@ -15,7 +15,7 @@
 ## 1. Introdução
 
 O **PoupaPobre** é um aplicativo mobile de gestão financeira pessoal.
-O sistema permite ao usuário registrar sua renda, controlar despesas fixas e variáveis, definir metas de economia e acompanhar sua saúde financeira por meio de relatórios e gráficos, auxiliando na tomada de decisões e no desenvolvimento do hábito de economizar.
+O sistema permite ao usuário registrar sua renda, controlar despesas fixas e variáveis, definir metas de economia e acompanhar sua gestão financeira por meio de relatórios e gráficos, auxiliando na tomada de decisões e no desenvolvimento do hábito de economizar.
 
 ---
 
@@ -26,7 +26,7 @@ O sistema contempla as seguintes macrofuncionalidades:
 - Autenticação de usuário (cadastro, login por e-mail, Gmail e biometria)
 - Registro e gestão de renda mensal
 - Registro e gestão de contas fixas e variáveis
-- Definição e acompanhamento de metas de economia
+- Definição e acompanhamento de metas de economia baseado no salário e contas fixas cadastrados  
 - Relatórios e gráficos financeiros
 - Histórico de meses anteriores
 - Notificações e alertas financeiros
@@ -34,8 +34,6 @@ O sistema contempla as seguintes macrofuncionalidades:
 ---
 
 ## 3. Requisitos Funcionais
-
-> Descrevem **o que o sistema deve fazer**.
 
 | ID    | Descrição                                                                 | Prioridade |
 |-------|---------------------------------------------------------------------------|------------|
@@ -60,15 +58,13 @@ O sistema contempla as seguintes macrofuncionalidades:
 
 ## 4. Requisitos Não Funcionais
 
-> Descrevem **como o sistema deve se comportar**.
-
 | ID     | Descrição                                                                 | Categoria      |
 |--------|---------------------------------------------------------------------------|----------------|
 | RNF01  | O app deve ser compatível com **Android**                           | Portabilidade  |
 | RNF02  | O login biométrico deve utilizar a **API nativa do dispositivo**          | Segurança      |
-| RNF03  | As senhas devem ser **armazenadas com criptografia** (hash)               | Segurança      |
-| RNF04  | Os dados financeiros devem ser **armazenados localmente (SQLite) e criptografados** para garantir privacidade e proteção | Segurança      |
-| RNF05  | O app deve ter **tempo de resposta inferior a 2 segundos** nas operações principais | Performance    |
+| RNF03  | As senhas devem ser **armazenadas com criptografia (hash)**               | Segurança      |
+| RNF04  | Os dados financeiros devem ser **armazenados localmente (SQLite)** | Segurança      |
+| RNF05  | O app deve ter **tempo de resposta inferior de 4 segundos nas operações principais** | Performance    |
 | RNF06  | A interface deve ser **responsiva e acessível**, permitindo o cadastro de gastos em até 3 cliques da home | Usabilidade    |
 | RNF07  | O app deve permitir **consulta offline** dos dados já carregados          | Disponibilidade|
 | RNF08  | O sistema deve ser desenvolvido com **React Native, Expo e SQLite**       | Tecnologia     |
@@ -83,7 +79,8 @@ O sistema contempla as seguintes macrofuncionalidades:
 | RN02  | Uma conta fixa não paga no mês vigente deve permanecer como **pendente**            |
 | RN03  | A meta de economia não pode ser maior que a renda mensal cadastrada                 |
 | RN04  | O histórico deve ser agrupado e consultado **por mês e ano**                        |
-| RN05  | O login biométrico só pode ser ativado após o primeiro login com e-mail ou Gmail    |
+| RN05  | O login biométrico só pode ser ativado após o primeiro login com Gmail    |
+| RN06 | Ao criar uma meta de economia é calculado com o valor do saldo quantos porcentos pode ser economizado | |
 
 ---
 
