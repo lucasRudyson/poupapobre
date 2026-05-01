@@ -43,9 +43,22 @@ export default function LoginScreen() {
       );
 
       if (user) {
-        Alert.alert('Bem-vindo', `Olá, ${user.name}! Login realizado com sucesso.`);
-        // Aqui você navegaria para a home do app
-        // router.push('/home'); 
+        // Check if user has fixed incomes
+        const income = await db.getFirstAsync<{ id: number }>(
+          'SELECT id FROM fixed_incomes WHERE user_id = ?',
+          [user.id]
+        );
+
+        if (income) {
+          Alert.alert('Bem-vindo', `Olá, ${user.name}! Login realizado com sucesso.`);
+          // router.push('/home'); 
+        } else {
+          // First time user or no config
+          router.push({
+            pathname: '/onboarding/fixed-incomes',
+            params: { userId: user.id, userName: user.name }
+          });
+        }
       } else {
         Alert.alert('Erro', 'E-mail ou senha incorretos.');
       }

@@ -61,8 +61,20 @@ export default function RegisterScreen() {
         [name, email, password]
       );
 
+      // Get the new user id
+      const newUser = await db.getFirstAsync<{ id: number }>(
+        'SELECT id FROM users WHERE email = ?',
+        [email]
+      );
+
       Alert.alert('Sucesso', 'Conta criada com sucesso!', [
-        { text: 'OK', onPress: () => router.push('/') }
+        { 
+          text: 'Continuar', 
+          onPress: () => router.push({
+            pathname: '/onboarding/fixed-incomes',
+            params: { userId: newUser?.id, userName: name }
+          }) 
+        }
       ]);
     } catch (error) {
       console.error('Registration error:', error);
