@@ -13,6 +13,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { MaterialIcons } from '@expo/vector-icons';
+import { Link } from 'expo-router';
 import GoogleLogo from '@/components/GoogleLogo';
 import Colors from '@/constants/Colors';
 
@@ -153,7 +154,9 @@ export default function LoginScreen() {
           <View style={styles.footer}>
             <Text style={styles.footerText}>
               Não tem uma conta?{' '}
-              <Text style={styles.footerLink}>Cadastre-se</Text>
+              <Link href="/register" asChild>
+                <Text style={styles.footerLink}>Cadastre-se</Text>
+              </Link>
             </Text>
           </View>
         </View>
