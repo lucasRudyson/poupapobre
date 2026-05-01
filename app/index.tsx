@@ -9,20 +9,53 @@ import {
   Dimensions,
   KeyboardAvoidingView,
   Platform,
+  Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { MaterialIcons } from '@expo/vector-icons';
-import { Link } from 'expo-router';
+import { Link, useRouter } from 'expo-router';
 import GoogleLogo from '@/components/GoogleLogo';
 import Colors from '@/constants/Colors';
+import { getDatabase } from '@/services/database';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 export default function LoginScreen() {
+  const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const handleLogin = async () => {
+    if (!email || !password) {
+      Alert.alert('Erro', 'Por favor, preencha todos os campos.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const db = await getDatabase();
+      const user = await db.getFirstAsync<{ id: number, name: string }>(
+        'SELECT id, name FROM users WHERE email = ? AND password = ?',
+        [email, password]
+      );
+
+      if (user) {
+        Alert.alert('Bem-vindo', `Olá, ${user.name}! Login realizado com sucesso.`);
+        // Aqui você navegaria para a home do app
+        // router.push('/home'); 
+      } else {
+        Alert.alert('Erro', 'E-mail ou senha incorretos.');
+      }
+    } catch (error) {
+      console.error('Login error:', error);
+      Alert.alert('Erro', 'Ocorreu um erro ao tentar fazer login.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <KeyboardAvoidingView
@@ -116,14 +149,21 @@ export default function LoginScreen() {
               </View>
 
               {/* ── Entrar Button ── */}
-              <TouchableOpacity activeOpacity={0.85} style={styles.loginButtonWrapper}>
+              <TouchableOpacity 
+                activeOpacity={0.85} 
+                style={styles.loginButtonWrapper}
+                onPress={handleLogin}
+                disabled={loading}
+              >
                 <LinearGradient
                   colors={[Colors.primaryContainer, Colors.primaryFixedDim]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
                   style={styles.loginButton}
                 >
-                  <Text style={styles.loginButtonText}>Entrar</Text>
+                  <Text style={styles.loginButtonText}>
+                    {loading ? 'Entrando...' : 'Entrar'}
+                  </Text>
                 </LinearGradient>
               </TouchableOpacity>
 

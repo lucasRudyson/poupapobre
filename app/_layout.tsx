@@ -21,6 +21,7 @@ import {
 } from '@expo-google-fonts/inter';
 import * as SplashScreen from 'expo-splash-screen';
 import Colors from '@/constants/Colors';
+import { initDatabase } from '@/services/database';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -40,7 +41,12 @@ export default function RootLayout() {
 
   useEffect(() => {
     if (fontsLoaded) {
-      SplashScreen.hideAsync();
+      initDatabase().then(() => {
+        SplashScreen.hideAsync();
+      }).catch(err => {
+        console.error('Error initializing database:', err);
+        SplashScreen.hideAsync();
+      });
     }
   }, [fontsLoaded]);
 

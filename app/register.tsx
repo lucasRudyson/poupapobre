@@ -9,6 +9,7 @@ import {
   Platform,
   ScrollView,
   Image,
+  Alert,
 } from 'react-native';
 import { Link, useRouter } from 'expo-router';
 import { BlurView } from 'expo-blur';
@@ -16,6 +17,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialIcons } from '@expo/vector-icons';
 import Colors from '@/constants/Colors';
 import GoogleLogo from '@/components/GoogleLogo';
+import { getDatabase } from '@/services/database';
 
 export default function RegisterScreen() {
   const router = useRouter();
@@ -24,6 +26,51 @@ export default function RegisterScreen() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const handleRegister = async () => {
+    if (!name || !email || !password || !confirmPassword) {
+      Alert.alert('Erro', 'Por favor, preencha todos os campos.');
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      Alert.alert('Erro', 'As senhas não coincidem.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const db = await getDatabase();
+      
+      // Check if user already exists
+      const existingUser = await db.getFirstAsync<{ id: number }>(
+        'SELECT id FROM users WHERE email = ?',
+        [email]
+      );
+
+      if (existingUser) {
+        Alert.alert('Erro', 'Este e-mail já está cadastrado.');
+        setLoading(false);
+        return;
+      }
+
+      // Insert user
+      await db.runAsync(
+        'INSERT INTO users (name, email, password) VALUES (?, ?, ?)',
+        [name, email, password]
+      );
+
+      Alert.alert('Sucesso', 'Conta criada com sucesso!', [
+        { text: 'OK', onPress: () => router.push('/') }
+      ]);
+    } catch (error) {
+      console.error('Registration error:', error);
+      Alert.alert('Erro', 'Ocorreu um erro ao criar sua conta.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <KeyboardAvoidingView
@@ -110,14 +157,21 @@ export default function RegisterScreen() {
               </View>
 
               {/* CTA Button */}
-              <TouchableOpacity activeOpacity={0.8} style={styles.registerButton}>
+              <TouchableOpacity 
+                activeOpacity={0.8} 
+                style={styles.registerButton}
+                onPress={handleRegister}
+                disabled={loading}
+              >
                 <LinearGradient
                   colors={[Colors.primaryContainer, '#3f4cda']}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
                   style={styles.gradientButton}
                 >
-                  <Text style={styles.registerButtonText}>Cadastrar</Text>
+                  <Text style={styles.registerButtonText}>
+                    {loading ? 'Cadastrando...' : 'Cadastrar'}
+                  </Text>
                 </LinearGradient>
               </TouchableOpacity>
 
