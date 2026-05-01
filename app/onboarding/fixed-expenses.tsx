@@ -126,27 +126,7 @@ export default function FixedExpensesScreen() {
             </Text>
           </View>
 
-          {/* ── Expense List ── */}
-          <View style={styles.listContainer}>
-            {expenses.map((item) => (
-              <BlurView key={item.id} intensity={30} tint="dark" style={styles.expenseCard}>
-                <View style={styles.expenseInfo}>
-                  <View style={[styles.iconBox, { borderColor: 'rgba(255, 180, 171, 0.2)' }]}>
-                    <MaterialIcons name={getIcon(item.name)} size={22} color={Colors.error} />
-                  </View>
-                  <View>
-                    <Text style={styles.expenseName}>{item.name}</Text>
-                    <Text style={styles.expenseCategory}>Mensal</Text>
-                  </View>
-                </View>
-                <Text style={styles.expenseValue}>
-                  R$ {item.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                </Text>
-              </BlurView>
-            ))}
-          </View>
-
-          {/* ── Add Action or Form ── */}
+          {/* ── Add Action or Form (Now on Top) ── */}
           {!isAdding ? (
             <TouchableOpacity 
               style={styles.addPlaceholder} 
@@ -193,6 +173,27 @@ export default function FixedExpensesScreen() {
               </View>
             </View>
           )}
+
+          {/* ── Expense List (Now Below) ── */}
+          <View style={[styles.listContainer, { marginTop: 24 }]}>
+            {expenses.length > 0 && <Text style={styles.sectionTitle}>ITENS ADICIONADOS</Text>}
+            {expenses.map((item) => (
+              <BlurView key={item.id} intensity={30} tint="dark" style={styles.expenseCard}>
+                <View style={styles.expenseInfo}>
+                  <View style={[styles.iconBox, { borderColor: 'rgba(255, 180, 171, 0.2)' }]}>
+                    <MaterialIcons name={getIcon(item.name)} size={22} color={Colors.error} />
+                  </View>
+                  <View>
+                    <Text style={styles.expenseName}>{item.name}</Text>
+                    <Text style={styles.expenseCategory}>Mensal</Text>
+                  </View>
+                </View>
+                <Text style={styles.expenseValue}>
+                  R$ {item.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </Text>
+              </BlurView>
+            ))}
+          </View>
 
           <View style={{ height: 120 }} />
         </ScrollView>
@@ -308,6 +309,13 @@ const styles = StyleSheet.create({
   listContainer: {
     gap: 16,
     marginBottom: 20,
+  },
+  sectionTitle: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 12,
+    color: Colors.outline,
+    letterSpacing: 2,
+    marginBottom: 16,
   },
   expenseCard: {
     flexDirection: 'row',

@@ -119,31 +119,7 @@ export default function FixedIncomesScreen() {
             </Text>
           </View>
 
-          {/* ── Income List ── */}
-          <View style={styles.listContainer}>
-            {incomes.map((item) => (
-              <BlurView key={item.id} intensity={40} tint="dark" style={styles.incomeCard}>
-                <View style={styles.incomeInfo}>
-                  <View style={styles.iconBox}>
-                    <MaterialIcons 
-                      name={item.name.toLowerCase().includes('salário') ? 'work' : 'apartment'} 
-                      size={20} 
-                      color={Colors.primary} 
-                    />
-                  </View>
-                  <View>
-                    <Text style={styles.incomeName}>{item.name}</Text>
-                    <Text style={styles.incomeType}>{item.type}</Text>
-                  </View>
-                </View>
-                <Text style={styles.incomeValue}>
-                  R$ {item.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                </Text>
-              </BlurView>
-            ))}
-          </View>
-
-          {/* ── Add Form ── */}
+          {/* ── Add Form (Now on Top) ── */}
           <View style={styles.formCard}>
             <View style={styles.formHeader}>
               <MaterialIcons name="add-circle" size={16} color={Colors.primary} />
@@ -157,7 +133,7 @@ export default function FixedIncomesScreen() {
                   <MaterialIcons name="edit" size={18} color={Colors.outlineVariant} style={styles.inputIcon} />
                   <TextInput
                     style={styles.input}
-                    placeholder="Ex: Renda Extra Freelance"
+                    placeholder="Ex: Salário"
                     placeholderTextColor="rgba(198, 197, 215, 0.5)"
                     value={newName}
                     onChangeText={setNewName}
@@ -185,6 +161,31 @@ export default function FixedIncomesScreen() {
                 <Text style={styles.addButtonText}>Adicionar à lista</Text>
               </TouchableOpacity>
             </View>
+          </View>
+
+          {/* ── Income List (Now Below) ── */}
+          <View style={[styles.listContainer, { marginTop: 24 }]}>
+            <Text style={styles.sectionTitle}>ITENS ADICIONADOS</Text>
+            {incomes.map((item) => (
+              <BlurView key={item.id} intensity={40} tint="dark" style={styles.incomeCard}>
+                <View style={styles.incomeInfo}>
+                  <View style={styles.iconBox}>
+                    <MaterialIcons 
+                      name={item.name.toLowerCase().includes('salário') ? 'work' : 'apartment'} 
+                      size={20} 
+                      color={Colors.primary} 
+                    />
+                  </View>
+                  <View>
+                    <Text style={styles.incomeName}>{item.name}</Text>
+                    <Text style={styles.incomeType}>{item.type}</Text>
+                  </View>
+                </View>
+                <Text style={styles.incomeValue}>
+                  R$ {item.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </Text>
+              </BlurView>
+            ))}
           </View>
 
           {/* Spacing for sticky button */}
@@ -291,6 +292,13 @@ const styles = StyleSheet.create({
   listContainer: {
     gap: 16,
     marginBottom: 24,
+  },
+  sectionTitle: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 12,
+    color: Colors.outline,
+    letterSpacing: 2,
+    marginBottom: 16,
   },
   incomeCard: {
     flexDirection: 'row',
