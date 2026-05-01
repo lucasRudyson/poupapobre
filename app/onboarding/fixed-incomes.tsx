@@ -57,6 +57,13 @@ export default function FixedIncomesScreen() {
     }
 
     const valueNum = parseFloat(newValue.replace(',', '.'));
+    const finalUserId = userId ? Number(userId) : 1;
+    
+    console.log('--- Tentando Adicionar Receita ---');
+    console.log('ID do Usuário:', finalUserId);
+    console.log('Nome:', newName);
+    console.log('Valor:', valueNum);
+
     if (isNaN(valueNum)) {
       Alert.alert('Erro', 'Valor inválido.');
       return;
@@ -66,14 +73,15 @@ export default function FixedIncomesScreen() {
       const db = await getDatabase();
       await db.runAsync(
         'INSERT INTO fixed_incomes (user_id, name, value) VALUES (?, ?, ?)',
-        [userId ? Number(userId) : 1, newName, valueNum]
+        [finalUserId, newName, valueNum]
       );
       
+      console.log('✅ Receita adicionada com sucesso');
       setNewName('');
       setNewValue('');
       fetchIncomes();
     } catch (error) {
-      console.error('Error adding income:', error);
+      console.error('❌ Erro ao adicionar receita:', error);
       Alert.alert('Erro', 'Não foi possível adicionar a receita.');
     }
   };
@@ -186,7 +194,14 @@ export default function FixedIncomesScreen() {
 
       {/* ── Bottom Action ── */}
       <View style={styles.bottomAction}>
-        <TouchableOpacity activeOpacity={0.9} style={styles.continueButton}>
+        <TouchableOpacity 
+          activeOpacity={0.9} 
+          style={styles.continueButton}
+          onPress={() => router.push({
+            pathname: '/onboarding/fixed-expenses',
+            params: { userId }
+          })}
+        >
           <LinearGradient
             colors={[Colors.primaryContainer, Colors.primary]}
             start={{ x: 0, y: 0 }}
