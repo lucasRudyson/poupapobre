@@ -22,7 +22,15 @@ interface FixedExpense {
   name: string;
   value: number;
   category: string;
+  frequency: string;
+  due_day: number | null;
 }
+
+const FREQUENCIES = [
+  { id: 'Diário', label: 'Dia' },
+  { id: 'Semanal', label: 'Sem' },
+  { id: 'Mensal', label: 'Mês' },
+];
 
 export default function FixedExpensesScreen() {
   const router = useRouter();
@@ -31,6 +39,8 @@ export default function FixedExpensesScreen() {
   const [expenses, setExpenses] = useState<FixedExpense[]>([]);
   const [newName, setNewName] = useState('');
   const [newValue, setNewValue] = useState('');
+  const [frequency, setFrequency] = useState('Mensal');
+  const [dueDay, setDueDay] = useState('');
   const [isAdding, setIsAdding] = useState(false);
 
   useEffect(() => {
@@ -57,20 +67,28 @@ export default function FixedExpensesScreen() {
     }
 
     const valueNum = parseFloat(newValue.replace(',', '.'));
+    const dayNum = frequency === 'Mensal' ? parseInt(dueDay) : null;
+
     if (isNaN(valueNum)) {
       Alert.alert('Erro', 'Valor inválido.');
+      return;
+    }
+
+    if (frequency === 'Mensal' && (isNaN(dayNum!) || dayNum! < 1 || dayNum! > 31)) {
+      Alert.alert('Erro', 'Por favor, insira um dia válido (1-31).');
       return;
     }
 
     try {
       const db = await getDatabase();
       await db.runAsync(
-        'INSERT INTO fixed_expenses (user_id, name, value) VALUES (?, ?, ?)',
-        [userId ? Number(userId) : 1, newName, valueNum]
+        'INSERT INTO fixed_expenses (user_id, name, value, frequency, due_day) VALUES (?, ?, ?, ?, ?)',
+        [userId ? Number(userId) : 1, newName, valueNum, frequency, dayNum]
       );
       
       setNewName('');
       setNewValue('');
+      setDueDay('');
       setIsAdding(false);
       fetchExpenses();
     } catch (error) {
@@ -119,14 +137,14 @@ export default function FixedExpensesScreen() {
           {/* ── Header Text ── */}
           <View style={styles.headerTextContainer}>
             <Text style={styles.title}>
-              E quais são suas <Text style={styles.highlightText}>despesas fixas?</Text>
+              Configure suas <Text style={styles.highlightText}>despesas</Text>
             </Text>
             <Text style={styles.subtitle}>
-              Contas recorrentes como aluguel, luz, internet ou assinaturas.
+              Quanto mais detalhes, melhor será sua saúde financeira.
             </Text>
           </View>
 
-          {/* ── Add Action or Form (Now on Top) ── */}
+          {/* ── Add Form (Top) ── */}
           {!isAdding ? (
             <TouchableOpacity 
               style={styles.addPlaceholder} 
@@ -141,7 +159,7 @@ export default function FixedExpensesScreen() {
               <Text style={styles.formTitle}>Nova Despesa</Text>
               
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>NOME DA DESPESA</Text>
+                <Text style={styles.inputLabel}>NOME</Text>
                 <TextInput
                   style={styles.input}
                   placeholder="Ex: Internet"
@@ -151,17 +169,49 @@ export default function FixedExpensesScreen() {
                 />
               </View>
 
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>VALOR (R$)</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="0,00"
-                  placeholderTextColor="rgba(198, 197, 215, 0.4)"
-                  keyboardType="numeric"
-                  value={newValue}
-                  onChangeText={setNewValue}
-                />
+              <View style={styles.row}>
+                <View style={[styles.inputGroup, { flex: 1 }]}>
+                  <Text style={styles.inputLabel}>VALOR (R$)</Text>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="0,00"
+                    placeholderTextColor="rgba(198, 197, 215, 0.4)"
+                    keyboardType="numeric"
+                    value={newValue}
+                    onChangeText={setNewValue}
+                  />
+                </View>
+                <View style={[styles.inputGroup, { flex: 1, marginLeft: 16 }]}>
+                  <Text style={styles.inputLabel}>RECORRÊNCIA</Text>
+                  <View style={styles.freqRow}>
+                    {FREQUENCIES.map((freq) => (
+                      <TouchableOpacity 
+                        key={freq.id}
+                        style={[styles.freqButton, frequency === freq.id && styles.freqButtonActive]}
+                        onPress={() => setFrequency(freq.id)}
+                      >
+                        <Text style={[styles.freqText, frequency === freq.id && styles.freqTextActive]}>
+                          {freq.label}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
               </View>
+
+              {frequency === 'Mensal' && (
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>DIA DO VENCIMENTO (1-31)</Text>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Ex: 10"
+                    placeholderTextColor="rgba(198, 197, 215, 0.4)"
+                    keyboardType="numeric"
+                    value={dueDay}
+                    onChangeText={setDueDay}
+                  />
+                </View>
+              )}
 
               <View style={styles.formActions}>
                 <TouchableOpacity onPress={() => setIsAdding(false)}>
@@ -174,7 +224,7 @@ export default function FixedExpensesScreen() {
             </View>
           )}
 
-          {/* ── Expense List (Now Below) ── */}
+          {/* ── Expense List (Below) ── */}
           <View style={[styles.listContainer, { marginTop: 24 }]}>
             {expenses.length > 0 && <Text style={styles.sectionTitle}>ITENS ADICIONADOS</Text>}
             {expenses.map((item) => (
@@ -185,7 +235,9 @@ export default function FixedExpensesScreen() {
                   </View>
                   <View>
                     <Text style={styles.expenseName}>{item.name}</Text>
-                    <Text style={styles.expenseCategory}>Mensal</Text>
+                    <Text style={styles.expenseCategory}>
+                      {item.frequency} {item.due_day ? `• Dia ${item.due_day}` : ''}
+                    </Text>
                   </View>
                 </View>
                 <Text style={styles.expenseValue}>
@@ -298,13 +350,17 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   highlightText: {
-    color: Colors.primary, // Could be a gradient but using primary for now
+    color: Colors.primary,
   },
   subtitle: {
     fontFamily: 'Manrope_400Regular',
     fontSize: 18,
     color: Colors.onSurfaceVariant,
     lineHeight: 26,
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   listContainer: {
     gap: 16,
@@ -416,6 +472,32 @@ const styles = StyleSheet.create({
     color: Colors.onSurface,
     fontFamily: 'Manrope_400Regular',
     fontSize: 16,
+  },
+  freqRow: {
+    flexDirection: 'row',
+    backgroundColor: Colors.surfaceContainerLowest,
+    borderRadius: 12,
+    padding: 4,
+    height: 56,
+    borderWidth: 1,
+    borderColor: 'rgba(69, 70, 85, 0.3)',
+  },
+  freqButton: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 8,
+  },
+  freqButtonActive: {
+    backgroundColor: Colors.surfaceContainerHighest,
+  },
+  freqText: {
+    fontFamily: 'Manrope_600SemiBold',
+    fontSize: 12,
+    color: Colors.onSurfaceVariant,
+  },
+  freqTextActive: {
+    color: Colors.primary,
   },
   formActions: {
     flexDirection: 'row',

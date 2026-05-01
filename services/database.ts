@@ -41,7 +41,7 @@ export const initDatabase = async () => {
       );
     `);
 
-    // Tabela de Despesas Fixas
+    // Tabela de Despesas Fixas (Atualizada com Frequência e Dia)
     await db.execAsync(`
       CREATE TABLE IF NOT EXISTS fixed_expenses (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -49,12 +49,22 @@ export const initDatabase = async () => {
         name TEXT NOT NULL,
         value REAL NOT NULL,
         category TEXT DEFAULT 'Geral',
+        frequency TEXT DEFAULT 'Mensal',
+        due_day INTEGER,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES users (id)
       );
     `);
+
+    // Tentar adicionar colunas caso a tabela já exista (Migração simples)
+    try {
+      await db.execAsync('ALTER TABLE fixed_expenses ADD COLUMN frequency TEXT DEFAULT "Mensal";');
+    } catch (e) {}
+    try {
+      await db.execAsync('ALTER TABLE fixed_expenses ADD COLUMN due_day INTEGER;');
+    } catch (e) {}
     
-    console.log('✅ Banco de dados Singleton inicializado com todas as tabelas');
+    console.log('✅ Banco de dados inicializado com novas colunas');
   } catch (error) {
     console.error('❌ Erro crítico na inicialização do banco:', error);
     throw error;
