@@ -67,15 +67,10 @@ export default function RegisterScreen() {
         [email]
       );
 
-      Alert.alert('Sucesso', 'Conta criada com sucesso!', [
-        { 
-          text: 'Continuar', 
-          onPress: () => router.push({
-            pathname: '/onboarding/fixed-incomes',
-            params: { userId: newUser?.id, userName: name }
-          }) 
-        }
-      ]);
+      router.push({
+        pathname: '/onboarding/fixed-incomes',
+        params: { userId: newUser?.id, userName: name }
+      });
     } catch (error) {
       console.error('Registration error:', error);
       Alert.alert('Erro', 'Ocorreu um erro ao criar sua conta.');

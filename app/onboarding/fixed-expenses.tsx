@@ -262,7 +262,9 @@ export default function FixedExpensesScreen() {
         <TouchableOpacity 
           activeOpacity={0.9} 
           style={styles.finishButton}
-          onPress={() => Alert.alert('Sucesso', 'Configuração finalizada!')}
+          onPress={() => {
+            router.replace('/(tabs)');
+          }}
         >
           <LinearGradient
             colors={[Colors.primaryContainer, '#3f4cda']}

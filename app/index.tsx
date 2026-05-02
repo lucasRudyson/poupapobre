@@ -50,8 +50,7 @@ export default function LoginScreen() {
         );
 
         if (income) {
-          Alert.alert('Bem-vindo', `Olá, ${user.name}! Login realizado com sucesso.`);
-          // router.push('/home'); 
+          router.replace('/(tabs)');
         } else {
           // First time user or no config
           router.push({
