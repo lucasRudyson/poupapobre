@@ -40,6 +40,9 @@ interface FixedIncome {
   due_day: number;
 }
 
+import Swipeable from 'react-native-gesture-handler/Swipeable';
+import * as Haptics from 'expo-haptics';
+
 export default function IncomesListScreen() {
   const router = useRouter();
   const isFocused = useIsFocused();
@@ -90,6 +93,41 @@ export default function IncomesListScreen() {
     }
   };
 
+  const handleDeleteIncome = async (id: number) => {
+    try {
+      const db = await getDatabase();
+      await db.runAsync('DELETE FROM transactions WHERE id = ?', [id]);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      loadData();
+    } catch (error) {
+      console.error('Error deleting income:', error);
+    }
+  };
+
+  const handleDeleteFixedIncome = async (id: number) => {
+    try {
+      const db = await getDatabase();
+      await db.runAsync('DELETE FROM fixed_incomes WHERE id = ?', [id]);
+      // Também remove as transações futuras vinculadas? Por agora apenas a regra
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      loadData();
+    } catch (error) {
+      console.error('Error deleting fixed income:', error);
+    }
+  };
+
+  const renderRightActions = (id: number, onDelete: (id: number) => void) => {
+    return (
+      <TouchableOpacity 
+        style={styles.deleteAction} 
+        onPress={() => onDelete(id)}
+        activeOpacity={0.8}
+      >
+        <MaterialIcons name="delete-outline" size={28} color="#FFF" />
+      </TouchableOpacity>
+    );
+  };
+
   const handleToggleConfirm = async (fixed: FixedIncome, isConfirmed: boolean) => {
     try {
       const db = await getDatabase();
@@ -121,60 +159,70 @@ export default function IncomesListScreen() {
     const isConfirmed = confirmedIds.includes(item.id);
     
     return (
-      <TouchableOpacity 
-        style={[styles.fixedCard, isConfirmed && styles.fixedCardConfirmed]}
-        onPress={() => handleToggleConfirm(item, isConfirmed)}
-        activeOpacity={0.7}
+      <Swipeable
+        renderRightActions={() => renderRightActions(item.id, handleDeleteFixedIncome)}
+        overshootRight={false}
       >
-        <View style={styles.cardLeft}>
-          <View style={[
-            styles.iconBox, 
-            { backgroundColor: isConfirmed ? 'rgba(78, 222, 163, 0.1)' : 'rgba(228, 225, 238, 0.05)' }
-          ]}>
-            <MaterialIcons 
-              name={isConfirmed ? 'check-circle' : 'radio-button-unchecked'} 
-              size={24} 
-              color={isConfirmed ? Colors.secondary : Colors.outline} 
-            />
+        <TouchableOpacity 
+          style={[styles.fixedCard, isConfirmed && styles.fixedCardConfirmed]}
+          onPress={() => handleToggleConfirm(item, isConfirmed)}
+          activeOpacity={0.7}
+        >
+          <View style={styles.cardLeft}>
+            <View style={[
+              styles.iconBox, 
+              { backgroundColor: isConfirmed ? 'rgba(78, 222, 163, 0.1)' : 'rgba(228, 225, 238, 0.05)' }
+            ]}>
+              <MaterialIcons 
+                name={isConfirmed ? 'check-circle' : 'radio-button-unchecked'} 
+                size={24} 
+                color={isConfirmed ? Colors.secondary : Colors.outline} 
+              />
+            </View>
+            <View>
+              <Text style={[styles.fixedDescription, isConfirmed && styles.fixedTextConfirmed]}>
+                {item.name}
+              </Text>
+              <Text style={styles.fixedDate}>Dia {item.due_day} • R$ {item.value.toLocaleString('pt-BR')}</Text>
+            </View>
           </View>
-          <View>
-            <Text style={[styles.fixedDescription, isConfirmed && styles.fixedTextConfirmed]}>
-              {item.name}
-            </Text>
-            <Text style={styles.fixedDate}>Dia {item.due_day} • R$ {item.value.toLocaleString('pt-BR')}</Text>
-          </View>
-        </View>
-        <MaterialIcons 
-          name={isConfirmed ? 'check-box' : 'check-box-outline-blank'} 
-          size={24} 
-          color={isConfirmed ? Colors.secondary : 'rgba(228, 225, 238, 0.2)'} 
-        />
-      </TouchableOpacity>
+          <MaterialIcons 
+            name={isConfirmed ? 'check-box' : 'check-box-outline-blank'} 
+            size={24} 
+            color={isConfirmed ? Colors.secondary : 'rgba(228, 225, 238, 0.2)'} 
+          />
+        </TouchableOpacity>
+      </Swipeable>
     );
   };
 
   const renderItem = ({ item }: { item: Income }) => (
-    <View style={styles.incomeCard}>
-      <View style={styles.cardLeft}>
-        <View style={styles.iconBox}>
-          <MaterialIcons 
-            name={CATEGORY_ICONS[item.category] || 'payments'} 
-            size={24} 
-            color={Colors.primary} 
-          />
+    <Swipeable
+      renderRightActions={() => renderRightActions(item.id, handleDeleteIncome)}
+      overshootRight={false}
+    >
+      <View style={styles.incomeCard}>
+        <View style={styles.cardLeft}>
+          <View style={styles.iconBox}>
+            <MaterialIcons 
+              name={CATEGORY_ICONS[item.category] || 'payments'} 
+              size={24} 
+              color={Colors.primary} 
+            />
+          </View>
+          <View>
+            <Text style={styles.incomeDescription}>{item.description}</Text>
+            <Text style={styles.incomeDate}>
+              {new Date(item.date).toLocaleDateString('pt-BR')}
+              {item.is_recurrent ? ' • Recurrente' : ''}
+            </Text>
+          </View>
         </View>
-        <View>
-          <Text style={styles.incomeDescription}>{item.description}</Text>
-          <Text style={styles.incomeDate}>
-            {new Date(item.date).toLocaleDateString('pt-BR')}
-            {item.is_recurrent ? ' • Recurrente' : ''}
-          </Text>
-        </View>
+        <Text style={styles.incomeValue}>
+          + R$ {item.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+        </Text>
       </View>
-      <Text style={styles.incomeValue}>
-        + R$ {item.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-      </Text>
-    </View>
+    </Swipeable>
   );
 
   return (
@@ -458,5 +506,14 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 12,
     elevation: 8,
+  },
+  deleteAction: {
+    backgroundColor: '#FF5252',
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 80,
+    height: '86%', // Slightly less than card to account for margin
+    borderRadius: 20,
+    marginBottom: 12,
   },
 });

@@ -94,7 +94,20 @@ export default function FixedIncomesScreen() {
           <MaterialIcons name="arrow-back" size={24} color={Colors.primary} />
         </TouchableOpacity>
         <Text style={styles.navTitle}>LUMINOUS VAULT</Text>
-        <View style={{ width: 40 }} />
+        <TouchableOpacity 
+          onPress={async () => {
+            try {
+              const db = await getDatabase();
+              await db.runAsync('UPDATE users SET onboarding_completed = 1 WHERE id = ?', [userId ? Number(userId) : 1]);
+              router.replace('/dashboard');
+            } catch (error) {
+              router.replace('/dashboard');
+            }
+          }} 
+          style={styles.skipButton}
+        >
+          <Text style={styles.skipText}>Pular</Text>
+        </TouchableOpacity>
       </View>
 
       <KeyboardAvoidingView
@@ -444,5 +457,16 @@ const styles = StyleSheet.create({
     fontFamily: 'PlusJakartaSans_700Bold',
     fontSize: 18,
     color: Colors.onPrimaryContainer,
+  },
+  skipButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  skipText: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 12,
+    color: Colors.outline,
   },
 });

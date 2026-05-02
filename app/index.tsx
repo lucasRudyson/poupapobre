@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -16,6 +16,8 @@ import { BlurView } from 'expo-blur';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Link, useRouter } from 'expo-router';
 import GoogleLogo from '@/components/GoogleLogo';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { BiometricsService } from '@/services/biometrics';
 import Colors from '@/constants/Colors';
 import { getDatabase } from '@/services/database';
 
@@ -27,6 +29,114 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [isBiometricAvailable, setIsBiometricAvailable] = useState(false);
+
+  useEffect(() => {
+    console.log('DEBUG: LoginScreen mounted');
+    checkBiometrics();
+  }, []);
+
+  const checkBiometrics = async () => {
+    const available = await BiometricsService.isAvailable();
+    setIsBiometricAvailable(available);
+
+    if (available) {
+      const lastUserEmail = await AsyncStorage.getItem('last_user_email');
+      const biometryEnabled = await AsyncStorage.getItem('biometry_enabled');
+      const manuallyLoggedOut = await AsyncStorage.getItem('manually_logged_out');
+
+      if (lastUserEmail) {
+        setEmail(lastUserEmail);
+      }
+
+      if (lastUserEmail && biometryEnabled === 'true') {
+        if (manuallyLoggedOut === 'true') {
+          console.log('DEBUG: Skipping biometric login because of manual logout');
+          // Não limpamos a flag imediatamente para evitar re-renders malucos
+          // Vamos limpar apenas após um tempo ou em uma ação do usuário
+          setTimeout(async () => {
+             await AsyncStorage.removeItem('manually_logged_out');
+          }, 2000);
+        } else {
+          // Tentar login biométrico automático
+          handleBiometricLogin(lastUserEmail);
+        }
+      }
+    }
+  };
+
+  const handleBiometricLogin = async (savedEmail?: string) => {
+    const targetEmail = savedEmail || email;
+    if (!targetEmail) {
+      Alert.alert('Erro', 'Por favor, insira seu e-mail primeiro ou realize o login manual uma vez.');
+      return;
+    }
+
+    const success = await BiometricsService.authenticate('Acesse o PoupaPobre com sua biometria');
+    
+    if (success) {
+      setLoading(true);
+      try {
+        const db = await getDatabase();
+        const user = await db.getFirstAsync<{ id: number, name: string, email: string, biometry_enabled: number, onboarding_completed: number }>(
+          'SELECT id, name, email, biometry_enabled, onboarding_completed FROM users WHERE email = ?',
+          [targetEmail]
+        );
+
+        if (user && user.biometry_enabled === 1) {
+          handleLoginSuccess(user);
+        } else if (user && !savedEmail) {
+          Alert.alert('Biometria', 'Você precisa ativar a biometria nas configurações após o primeiro login.');
+        } else {
+          Alert.alert('Erro', 'Usuário não encontrado ou biometria não ativada.');
+        }
+      } catch (error) {
+        console.error('Biometric login error:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
+  const handleLoginSuccess = async (user: { id: number, name: string, email: string, onboarding_completed: number }) => {
+    console.log('DEBUG: Login success for:', user.email, 'Onboarding:', user.onboarding_completed);
+    
+    // Sincronizar e-mail
+    setEmail(user.email);
+    await AsyncStorage.setItem('last_user_email', user.email);
+    
+    // Se o onboarding já foi concluído no banco, vai direto pro dashboard
+    if (user.onboarding_completed === 1) {
+      router.replace('/dashboard');
+      return;
+    }
+
+    const db = await getDatabase();
+    
+    // Check if user has ANY data (fixed incomes, fixed expenses, or transactions)
+    const hasData = await db.getFirstAsync<{ id: number }>(`
+      SELECT id FROM (
+        SELECT id FROM fixed_incomes WHERE user_id = ?
+        UNION
+        SELECT id FROM fixed_expenses WHERE user_id = ?
+        UNION
+        SELECT id FROM transactions WHERE user_id = ?
+      ) LIMIT 1`,
+      [user.id, user.id, user.id]
+    );
+
+    if (hasData) {
+      console.log('DEBUG: User has data, skipping onboarding');
+      await db.runAsync('UPDATE users SET onboarding_completed = 1 WHERE id = ?', [user.id]);
+      router.replace('/dashboard');
+    } else {
+      console.log('DEBUG: New user, showing onboarding');
+      router.push({
+        pathname: '/onboarding/fixed-incomes',
+        params: { userId: user.id, userName: user.name }
+      });
+    }
+  };
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -37,26 +147,52 @@ export default function LoginScreen() {
     setLoading(true);
     try {
       const db = await getDatabase();
-      const user = await db.getFirstAsync<{ id: number, name: string }>(
-        'SELECT id, name FROM users WHERE email = ? AND password = ?',
+      const user = await db.getFirstAsync<{ id: number, name: string, email: string, biometry_enabled: number, onboarding_completed: number }>(
+        'SELECT id, name, email, biometry_enabled, onboarding_completed FROM users WHERE email = ? AND password = ?',
         [email, password]
       );
 
       if (user) {
-        // Check if user has fixed incomes
-        const income = await db.getFirstAsync<{ id: number }>(
-          'SELECT id FROM fixed_incomes WHERE user_id = ?',
-          [user.id]
-        );
+        console.log('DEBUG: Login manual bem-sucedido');
+        console.log('DEBUG: biometry_enabled no banco:', user.biometry_enabled);
+        
+        // Re-checar biometria na hora do login caso o hardware demore a responder no boot
+        let canUseBiometrics = isBiometricAvailable;
+        if (!canUseBiometrics) {
+          canUseBiometrics = await BiometricsService.isAvailable();
+          setIsBiometricAvailable(canUseBiometrics);
+        }
+        
+        console.log('DEBUG: isBiometricAvailable:', canUseBiometrics);
 
-        if (income) {
-          router.replace('/(tabs)');
+        // Se a biometria estiver disponível mas não ativa, perguntar
+        if (canUseBiometrics && (user.biometry_enabled === 0 || user.biometry_enabled === null)) {
+          console.log('DEBUG: Exibindo alerta de ativação de biometria');
+          Alert.alert(
+            'Ativar Biometria?',
+            'Deseja usar a biometria para entrar mais rápido nas próximas vezes?',
+            [
+              { 
+                text: 'Agora não', 
+                onPress: () => handleLoginSuccess(user) 
+              },
+              { 
+                text: 'Sim, ativar', 
+                onPress: async () => {
+                  await db.runAsync('UPDATE users SET biometry_enabled = 1 WHERE id = ?', [user.id]);
+                  await AsyncStorage.setItem('biometry_enabled', 'true');
+                  await AsyncStorage.setItem('last_user_email', email);
+                  handleLoginSuccess(user);
+                } 
+              }
+            ]
+          );
         } else {
-          // First time user or no config
-          router.push({
-            pathname: '/onboarding/fixed-incomes',
-            params: { userId: user.id, userName: user.name }
-          });
+          if (user.biometry_enabled === 1) {
+            await AsyncStorage.setItem('biometry_enabled', 'true');
+            await AsyncStorage.setItem('last_user_email', email);
+          }
+          handleLoginSuccess(user);
         }
       } else {
         Alert.alert('Erro', 'E-mail ou senha incorretos.');
@@ -193,12 +329,18 @@ export default function LoginScreen() {
               </View>
 
               {/* ── Biometric ── */}
-              <View style={styles.biometricRow}>
-                <TouchableOpacity activeOpacity={0.7} style={styles.biometricButton}>
-                  <MaterialIcons name="fingerprint" size={40} color={Colors.primary} />
-                  <Text style={styles.biometricLabel}>BIOMETRIA</Text>
-                </TouchableOpacity>
-              </View>
+              {isBiometricAvailable && (
+                <View style={styles.biometricRow}>
+                  <TouchableOpacity 
+                    activeOpacity={0.7} 
+                    style={styles.biometricButton}
+                    onPress={() => handleBiometricLogin()}
+                  >
+                    <MaterialIcons name="fingerprint" size={40} color={Colors.primary} />
+                    <Text style={styles.biometricLabel}>BIOMETRIA</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
             </View>
           </BlurView>
 
@@ -354,7 +496,7 @@ const styles = StyleSheet.create({
   loginButtonWrapper: {
     marginTop: 16,
     borderRadius: 9999,
-    shadowColor: '#5865f2',
+    shadowColor: Colors.primary,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.4,
     shadowRadius: 25,
@@ -383,7 +525,7 @@ const styles = StyleSheet.create({
     borderRadius: 9999,
     backgroundColor: Colors.surfaceContainerLow,
     borderWidth: 1,
-    borderColor: `${Colors.outlineVariant}33`, // 20% opacity
+    borderColor: `${Colors.outlineVariant}33`,
   },
   googleButtonText: {
     fontFamily: 'PlusJakartaSans_700Bold',
@@ -413,6 +555,7 @@ const styles = StyleSheet.create({
   /* ── Biometric ── */
   biometricRow: {
     alignItems: 'center',
+    marginTop: 8,
   },
   biometricButton: {
     alignItems: 'center',
@@ -421,7 +564,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     backgroundColor: Colors.surfaceContainerLow,
     borderWidth: 1,
-    borderColor: `${Colors.outlineVariant}1A`, // 10% opacity
+    borderColor: `${Colors.outlineVariant}1A`,
   },
   biometricLabel: {
     fontFamily: 'Inter_600SemiBold',

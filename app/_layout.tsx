@@ -1,6 +1,5 @@
 import { useEffect } from 'react';
 import { Stack } from 'expo-router';
-import { SQLiteProvider } from 'expo-sqlite';
 import { StatusBar } from 'expo-status-bar';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import {
@@ -24,7 +23,11 @@ import * as SplashScreen from 'expo-splash-screen';
 import Colors from '@/constants/Colors';
 import { initDatabase } from '@/services/database';
 
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+
 SplashScreen.preventAutoHideAsync();
+
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
@@ -60,17 +63,17 @@ export default function RootLayout() {
   }
 
   return (
-    <>
-      <StatusBar style="light" />
-      <SQLiteProvider databaseName="poupapobre.db">
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <StatusBar style="light" />
         <Stack
           screenOptions={{
             headerShown: false,
             contentStyle: { backgroundColor: Colors.surface },
           }}
         />
-      </SQLiteProvider>
-    </>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
 

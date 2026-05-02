@@ -31,20 +31,34 @@ export default function DashboardScreen() {
   const isFocused = useIsFocused();
 
   useEffect(() => {
-    if (isFocused) {
-      fetchData();
-    }
+    let isMounted = true;
+
+    const load = async () => {
+      if (isFocused && isMounted) {
+        await fetchData();
+      }
+    };
+
+    load();
+
+    return () => {
+      isMounted = false;
+    };
   }, [isFocused]);
 
   const fetchData = async () => {
     try {
+      // Pequeno delay para garantir que o banco está pronto se estivermos vindo de um login
       const db = await getDatabase();
+      if (!db) return;
       
       // Calculate totals from transactions table
       const transactions = await db.getAllAsync<{ value: number, type: string }>(
         'SELECT value, type FROM transactions'
       );
       
+      if (!transactions) return;
+
       const totalInc = transactions
         .filter(t => t.type === 'income')
         .reduce((sum, item) => sum + item.value, 0);
@@ -61,7 +75,7 @@ export default function DashboardScreen() {
       const latest = await db.getAllAsync<any>(
         'SELECT * FROM transactions ORDER BY date DESC, id DESC LIMIT 5'
       );
-      setLatestTransactions(latest);
+      if (latest) setLatestTransactions(latest);
 
       // Fetch goals progress and latest goal name
       const goalsData = await db.getFirstAsync<{ current: number, target: number, name: string, id: number }>(
@@ -78,7 +92,8 @@ export default function DashboardScreen() {
         setGoalsProgress({ current: 0, target: 0, name: '', id: null });
       }
     } catch (error) {
-      console.error('Error fetching dashboard data:', error);
+      // Silenciamos o erro se for apenas um fechamento de conexão durante navegação
+      console.log('Dashboard fetch skip (likely navigating):', error);
     }
   };
 

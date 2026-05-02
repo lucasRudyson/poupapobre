@@ -18,7 +18,7 @@ import { BlurView } from 'expo-blur';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { validateDateSelection } from '../../utils/validators';
-import * as SQLite from 'expo-sqlite';
+import { getDatabase } from '../../services/database';
 import Colors from '../../constants/Colors';
 
 const { width } = Dimensions.get('window');
@@ -41,7 +41,6 @@ interface GoalLog {
 export default function GoalDetailsScreen() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
-  const db = SQLite.useSQLiteContext();
   
   const [goal, setGoal] = useState<Goal | null>(null);
   const [logs, setLogs] = useState<GoalLog[]>([]);
@@ -57,6 +56,7 @@ export default function GoalDetailsScreen() {
 
   const fetchGoalData = async () => {
     try {
+      const db = await getDatabase();
       const goalResult = await db.getFirstAsync<Goal>(
         'SELECT * FROM goals WHERE id = ?',
         [id as string]
@@ -94,6 +94,7 @@ export default function GoalDetailsScreen() {
     const dateStr = date.toISOString();
 
     try {
+      const db = await getDatabase();
       // 1. Add to logs
       await db.runAsync(
         'INSERT INTO goal_logs (goal_id, value, date, description) VALUES (?, ?, ?, ?)',
@@ -126,6 +127,7 @@ export default function GoalDetailsScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
+              const db = await getDatabase();
               // 1. Delete from logs
               await db.runAsync('DELETE FROM goal_logs WHERE id = ?', [logId]);
 

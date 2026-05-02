@@ -42,6 +42,9 @@ const CATEGORY_ICONS: Record<string, any> = {
   outros: 'more-horiz',
 };
 
+import Swipeable from 'react-native-gesture-handler/Swipeable';
+import * as Haptics from 'expo-haptics';
+
 export default function ExpensesListScreen() {
   const router = useRouter();
   const isFocused = useIsFocused();
@@ -93,6 +96,40 @@ export default function ExpensesListScreen() {
     }
   };
 
+  const handleDeleteExpense = async (id: number) => {
+    try {
+      const db = await getDatabase();
+      await db.runAsync('DELETE FROM transactions WHERE id = ?', [id]);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      loadData();
+    } catch (error) {
+      console.error('Error deleting expense:', error);
+    }
+  };
+
+  const handleDeleteFixedExpense = async (id: number) => {
+    try {
+      const db = await getDatabase();
+      await db.runAsync('DELETE FROM fixed_expenses WHERE id = ?', [id]);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      loadData();
+    } catch (error) {
+      console.error('Error deleting fixed expense:', error);
+    }
+  };
+
+  const renderRightActions = (id: number, onDelete: (id: number) => void) => {
+    return (
+      <TouchableOpacity 
+        style={styles.deleteAction} 
+        onPress={() => onDelete(id)}
+        activeOpacity={0.8}
+      >
+        <MaterialIcons name="delete-outline" size={28} color="#FFF" />
+      </TouchableOpacity>
+    );
+  };
+
   const handleToggleConfirm = async (fixed: FixedExpense, isConfirmed: boolean) => {
     try {
       const db = await getDatabase();
@@ -119,41 +156,51 @@ export default function ExpensesListScreen() {
   const renderFixedItem = ({ item }: { item: FixedExpense }) => {
     const isConfirmed = confirmedIds.includes(item.id);
     return (
-      <TouchableOpacity 
-        style={[styles.fixedCard, isConfirmed && styles.fixedCardConfirmed]}
-        onPress={() => handleToggleConfirm(item, isConfirmed)}
+      <Swipeable
+        renderRightActions={() => renderRightActions(item.id, handleDeleteFixedExpense)}
+        overshootRight={false}
       >
-        <View style={styles.cardLeft}>
-          <MaterialIcons 
-            name={isConfirmed ? 'check-circle' : 'radio-button-unchecked'} 
-            size={24} 
-            color={isConfirmed ? '#4EDE67' : Colors.outline} 
-          />
-          <View>
-            <Text style={[styles.fixedName, isConfirmed && styles.textStrikethrough]}>{item.name}</Text>
-            <Text style={styles.fixedMeta}>Vence dia {item.due_day} • R$ {item.value.toLocaleString('pt-BR')}</Text>
+        <TouchableOpacity 
+          style={[styles.fixedCard, isConfirmed && styles.fixedCardConfirmed]}
+          onPress={() => handleToggleConfirm(item, isConfirmed)}
+        >
+          <View style={styles.cardLeft}>
+            <MaterialIcons 
+              name={isConfirmed ? 'check-circle' : 'radio-button-unchecked'} 
+              size={24} 
+              color={isConfirmed ? '#4EDE67' : Colors.outline} 
+            />
+            <View>
+              <Text style={[styles.fixedName, isConfirmed && styles.textStrikethrough]}>{item.name}</Text>
+              <Text style={styles.fixedMeta}>Vence dia {item.due_day} • R$ {item.value.toLocaleString('pt-BR')}</Text>
+            </View>
           </View>
-        </View>
-        <Text style={[styles.fixedValue, isConfirmed && styles.textStrikethrough]}>
-          R$ {item.value.toFixed(2)}
-        </Text>
-      </TouchableOpacity>
+          <Text style={[styles.fixedValue, isConfirmed && styles.textStrikethrough]}>
+            R$ {item.value.toFixed(2)}
+          </Text>
+        </TouchableOpacity>
+      </Swipeable>
     );
   };
 
   const renderVariableItem = ({ item }: { item: Expense }) => (
-    <View style={styles.varCard}>
-      <View style={styles.cardLeft}>
-        <View style={styles.iconBox}>
-          <MaterialIcons name={CATEGORY_ICONS[item.category] || 'shopping-bag'} size={20} color={Colors.error} />
+    <Swipeable
+      renderRightActions={() => renderRightActions(item.id, handleDeleteExpense)}
+      overshootRight={false}
+    >
+      <View style={styles.varCard}>
+        <View style={styles.cardLeft}>
+          <View style={styles.iconBox}>
+            <MaterialIcons name={CATEGORY_ICONS[item.category] || 'shopping-bag'} size={20} color={Colors.error} />
+          </View>
+          <View>
+            <Text style={styles.varName}>{item.description}</Text>
+            <Text style={styles.varMeta}>{new Date(item.date).toLocaleDateString('pt-BR')} • {item.category}</Text>
+          </View>
         </View>
-        <View>
-          <Text style={styles.varName}>{item.description}</Text>
-          <Text style={styles.varMeta}>{new Date(item.date).toLocaleDateString('pt-BR')} • {item.category}</Text>
-        </View>
+        <Text style={styles.varValue}>- R$ {item.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</Text>
       </View>
-      <Text style={styles.varValue}>- R$ {item.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</Text>
-    </View>
+    </Swipeable>
   );
 
   return (
@@ -410,5 +457,14 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.3,
     shadowRadius: 12,
+  },
+  deleteAction: {
+    backgroundColor: '#FF5252',
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 80,
+    height: '86%',
+    borderRadius: 20,
+    marginBottom: 12,
   },
 });
