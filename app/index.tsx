@@ -10,16 +10,24 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Link, useRouter } from 'expo-router';
+import * as Google from 'expo-auth-session/providers/google';
+import * as WebBrowser from 'expo-web-browser';
 import GoogleLogo from '@/components/GoogleLogo';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BiometricsService } from '@/services/biometrics';
 import Colors from '@/constants/Colors';
 import { getDatabase } from '@/services/database';
+import { fetchGoogleUserInfo, handleGoogleAuthResult } from '@/services/googleAuth';
+import { GOOGLE_CONFIG, isGoogleConfigured } from '@/constants/googleConfig';
+
+// Necessário para fechar o WebBrowser após o redirect OAuth no Android
+WebBrowser.maybeCompleteAuthSession();
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -29,12 +37,67 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [isBiometricAvailable, setIsBiometricAvailable] = useState(false);
+
+  // ── Google OAuth ──
+  const [request, response, promptAsync] = Google.useAuthRequest({
+    expoClientId: GOOGLE_CONFIG.expoClientId,
+    androidClientId: GOOGLE_CONFIG.androidClientId,
+    iosClientId: GOOGLE_CONFIG.iosClientId,
+    webClientId: GOOGLE_CONFIG.webClientId,
+  });
+
+  // Observa a resposta do fluxo OAuth Google
+  useEffect(() => {
+    if (response?.type === 'success') {
+      const token = response.authentication?.accessToken;
+      if (token) processGoogleLogin(token);
+    } else if (response?.type === 'error') {
+      Alert.alert('Erro', 'Login com Google cancelado ou falhou.');
+    }
+  }, [response]);
 
   useEffect(() => {
     console.log('DEBUG: LoginScreen mounted');
     checkBiometrics();
   }, []);
+
+  const processGoogleLogin = async (accessToken: string) => {
+    setGoogleLoading(true);
+    try {
+      const userInfo = await fetchGoogleUserInfo(accessToken);
+      const { user, isNewUser } = await handleGoogleAuthResult(userInfo);
+
+      if (isNewUser) {
+        // Novo usuário Google → vai para o onboarding
+        router.push({
+          pathname: '/onboarding/fixed-incomes',
+          params: { userId: user.id, userName: user.name },
+        });
+      } else {
+        // Usuário já existente → fluxo normal de login
+        handleLoginSuccess(user);
+      }
+    } catch (error) {
+      console.error('Google login error:', error);
+      Alert.alert('Erro', 'Não foi possível fazer login com o Google. Tente novamente.');
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
+
+  const handleGoogleButtonPress = () => {
+    if (!isGoogleConfigured()) {
+      Alert.alert(
+        '⚙️ Configuração necessária',
+        'As credenciais do Google ainda não foram configuradas.\n\nEdite o arquivo constants/googleConfig.ts e adicione seus Client IDs do Google Cloud Console.',
+        [{ text: 'Entendi' }]
+      );
+      return;
+    }
+    promptAsync();
+  };
 
   const checkBiometrics = async () => {
     const available = await BiometricsService.isAvailable();
@@ -316,9 +379,20 @@ export default function LoginScreen() {
               </TouchableOpacity>
 
               {/* ── Google Button ── */}
-              <TouchableOpacity activeOpacity={0.85} style={styles.googleButton}>
-                <GoogleLogo size={20} />
-                <Text style={styles.googleButtonText}>Continuar com Google</Text>
+              <TouchableOpacity
+                activeOpacity={0.85}
+                style={[styles.googleButton, (googleLoading || !request) && styles.buttonDisabled]}
+                onPress={handleGoogleButtonPress}
+                disabled={googleLoading || !request}
+              >
+                {googleLoading ? (
+                  <ActivityIndicator size="small" color={Colors.onSurface} />
+                ) : (
+                  <GoogleLogo size={20} />
+                )}
+                <Text style={styles.googleButtonText}>
+                  {googleLoading ? 'Aguardando Google...' : 'Continuar com Google'}
+                </Text>
               </TouchableOpacity>
 
               {/* ── Divider ── */}
@@ -531,6 +605,9 @@ const styles = StyleSheet.create({
     fontFamily: 'PlusJakartaSans_700Bold',
     fontSize: 18,
     color: Colors.onSurface,
+  },
+  buttonDisabled: {
+    opacity: 0.6,
   },
 
   /* ── Divider ── */

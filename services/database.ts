@@ -144,6 +144,16 @@ export const initDatabase = async () => {
       await db.execAsync('ALTER TABLE users ADD COLUMN onboarding_completed INTEGER DEFAULT 0;');
     } catch (e) { }
 
+    // Migração para users (google_id) — autenticação Google
+    try {
+      await db.execAsync('ALTER TABLE users ADD COLUMN google_id TEXT;');
+    } catch (e) { }
+
+    // Migração para users (avatar_url) — foto de perfil Google
+    try {
+      await db.execAsync('ALTER TABLE users ADD COLUMN avatar_url TEXT;');
+    } catch (e) { }
+
     console.log('✅ Banco de dados inicializado com novas colunas');
   } catch (error) {
     console.error('❌ Erro crítico na inicialização do banco:', error);

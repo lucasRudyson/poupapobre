@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   View,
@@ -10,14 +10,21 @@ import {
   ScrollView,
   Image,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { Link, useRouter } from 'expo-router';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialIcons } from '@expo/vector-icons';
+import * as Google from 'expo-auth-session/providers/google';
+import * as WebBrowser from 'expo-web-browser';
 import Colors from '@/constants/Colors';
 import GoogleLogo from '@/components/GoogleLogo';
 import { getDatabase } from '@/services/database';
+import { fetchGoogleUserInfo, handleGoogleAuthResult } from '@/services/googleAuth';
+import { GOOGLE_CONFIG, isGoogleConfigured } from '@/constants/googleConfig';
+
+WebBrowser.maybeCompleteAuthSession();
 
 export default function RegisterScreen() {
   const router = useRouter();
@@ -27,6 +34,77 @@ export default function RegisterScreen() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+
+  // ── Google OAuth ──
+  const [request, response, promptAsync] = Google.useAuthRequest({
+    expoClientId: GOOGLE_CONFIG.expoClientId,
+    androidClientId: GOOGLE_CONFIG.androidClientId,
+    iosClientId: GOOGLE_CONFIG.iosClientId,
+    webClientId: GOOGLE_CONFIG.webClientId,
+  });
+
+  useEffect(() => {
+    if (response?.type === 'success') {
+      const token = response.authentication?.accessToken;
+      if (token) processGoogleSignUp(token);
+    } else if (response?.type === 'error') {
+      Alert.alert('Erro', 'Login com Google cancelado ou falhou.');
+    }
+  }, [response]);
+
+  const processGoogleSignUp = async (accessToken: string) => {
+    setGoogleLoading(true);
+    try {
+      const userInfo = await fetchGoogleUserInfo(accessToken);
+      const { user, isNewUser } = await handleGoogleAuthResult(userInfo);
+
+      if (isNewUser) {
+        router.push({
+          pathname: '/onboarding/fixed-incomes',
+          params: { userId: user.id, userName: user.name },
+        });
+      } else {
+        // Já tem conta — redireciona direto
+        Alert.alert(
+          'Conta encontrada!',
+          `Você já possui uma conta com ${userInfo.email}. Redirecionando para o dashboard.`,
+          [
+            {
+              text: 'OK',
+              onPress: () => {
+                if (user.onboarding_completed === 1) {
+                  router.replace('/dashboard');
+                } else {
+                  router.push({
+                    pathname: '/onboarding/fixed-incomes',
+                    params: { userId: user.id, userName: user.name },
+                  });
+                }
+              },
+            },
+          ]
+        );
+      }
+    } catch (error) {
+      console.error('Google sign up error:', error);
+      Alert.alert('Erro', 'Não foi possível cadastrar com o Google. Tente novamente.');
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
+
+  const handleGoogleButtonPress = () => {
+    if (!isGoogleConfigured()) {
+      Alert.alert(
+        '⚙️ Configuração necessária',
+        'As credenciais do Google ainda não foram configuradas.\n\nEdite o arquivo constants/googleConfig.ts e adicione seus Client IDs do Google Cloud Console.',
+        [{ text: 'Entendi' }]
+      );
+      return;
+    }
+    promptAsync();
+  };
 
   const handleRegister = async () => {
     if (!name || !email || !password || !confirmPassword) {
@@ -190,9 +268,20 @@ export default function RegisterScreen() {
               </View>
 
               {/* Social Login */}
-              <TouchableOpacity style={styles.socialButton} activeOpacity={0.7}>
-                <GoogleLogo size={24} />
-                <Text style={styles.socialButtonText}>Continuar com Google</Text>
+              <TouchableOpacity
+                style={[styles.socialButton, (googleLoading || !request) && styles.buttonDisabled]}
+                activeOpacity={0.7}
+                onPress={handleGoogleButtonPress}
+                disabled={googleLoading || !request}
+              >
+                {googleLoading ? (
+                  <ActivityIndicator size="small" color={Colors.onSurface} />
+                ) : (
+                  <GoogleLogo size={24} />
+                )}
+                <Text style={styles.socialButtonText}>
+                  {googleLoading ? 'Aguardando Google...' : 'Continuar com Google'}
+                </Text>
               </TouchableOpacity>
             </View>
           </BlurView>
@@ -346,6 +435,9 @@ const styles = StyleSheet.create({
     color: Colors.onSurface,
     fontFamily: 'PlusJakartaSans_600SemiBold',
     fontSize: 15,
+  },
+  buttonDisabled: {
+    opacity: 0.6,
   },
   footer: {
     marginTop: 32,
